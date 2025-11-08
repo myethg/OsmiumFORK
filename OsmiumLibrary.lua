@@ -5,7 +5,7 @@
  d8"'    `"8b                                  ""                                      88           ""  88                                                            
 d8'        `8b                                                                         88               88                                                            
 88          88  ,adPPYba,  88,dPYba,,adPYba,   88  88       88  88,dPYba,,adPYba,      88           88  88,dPPYba,   8b,dPPYba,  ,adPPYYba,  8b,dPPYba,  8b       d8  
-88          88  I8[    ""  88P'   "88"    "8a  88  88       88  88P'   "88"    "8a     88           88  88P'    "8a  88P'   "Y8  ""     `Y8  88P'   "Y8  `8b     d8'  
+88          88  I8[    ""  88P'   "88"    "8a  88  88       88  88P'   "88"    "8a     88           88  88P'    "8a  88P'   "Y8  ""     `Y8  88P'   "Y8  `8b     d8'   
 Y8,        ,8P   `"Y8ba,   88      88      88  88  88       88  88      88      88     88           88  88       d8  88          ,adPPPPP88  88           `8b   d8'   
  Y8a.    .a8P   aa    ]8I  88      88      88  88  "8a,   ,a88  88      88      88     88           88  88b,   ,a8"  88          88,    ,88  88            `8b,d8'    
   `"Y8888Y"'    `"YbbdP"'  88      88      88  88   `"YbbdP'Y8  88      88      88     88888888888  88  8Y"Ybbd8"'   88          `"8bbdP"Y8  88              Y88'     
@@ -13,6 +13,7 @@ Y8,        ,8P   `"Y8ba,   88      88      88  88  88       88  88      88      
                                                                                                                                                             d8'  
 Interface : Trix#2794
 Script : Trix#2794 / Julman#1234
+Mobile Support Added
 
 --]]
 
@@ -33,13 +34,20 @@ end)
 
 local library = (function ()
     local UserInputService = game:GetService("UserInputService")
+    local GuiService = game:GetService("GuiService")
+
+    -- Mobile detection
+    local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+    local isTablet = UserInputService.TouchEnabled and workspace.CurrentCamera.ViewportSize.X > 1024
 
     local library = {
         WindowState = {
             Opened = 1,
             Minimized = 0,
             Destroyed = -1
-        }
+        },
+        IsMobile = isMobile,
+        IsTablet = isTablet
     }
     
     local Font = Enum.Font.GothamBold
@@ -68,21 +76,45 @@ local library = (function ()
     function autobutcolor(value, color)
         local TweenService = game:GetService("TweenService")
 
-        value.MouseEnter:Connect(function ()
-            TweenService:Create(
-                value,
-                TweenInfo.new(0.2, Enum.EasingStyle.Quad),
-                {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}
-            ):Play()
-        end)
-        
-        value.MouseLeave:Connect(function ()
-            TweenService:Create(
-                value,
-                TweenInfo.new(0.3, Enum.EasingStyle.Quad),
-                { BackgroundColor3 = color }
-            ):Play()
-        end)
+        if isMobile then
+            -- For mobile, use touch events
+            value.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    TweenService:Create(
+                        value,
+                        TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                        {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}
+                    ):Play()
+                end
+            end)
+            
+            value.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    TweenService:Create(
+                        value,
+                        TweenInfo.new(0.3, Enum.EasingStyle.Quad),
+                        { BackgroundColor3 = color }
+                    ):Play()
+                end
+            end)
+        else
+            -- Desktop hover events
+            value.MouseEnter:Connect(function ()
+                TweenService:Create(
+                    value,
+                    TweenInfo.new(0.2, Enum.EasingStyle.Quad),
+                    {BackgroundColor3 = Color3.fromRGB(80, 80, 80)}
+                ):Play()
+            end)
+            
+            value.MouseLeave:Connect(function ()
+                TweenService:Create(
+                    value,
+                    TweenInfo.new(0.3, Enum.EasingStyle.Quad),
+                    { BackgroundColor3 = color }
+                ):Play()
+            end)
+        end
     end
 
     function _if(bool, func1, func2) 
@@ -107,7 +139,7 @@ local library = (function ()
 
     ---@param title ?string
     function library:CreateWindow(title)
-        local title = title or "Proxima Hub Window"
+        local title = title or "Omium Library Window"
         local parent = game.CoreGui
         local state = library.WindowState.Opened
 
@@ -115,12 +147,18 @@ local library = (function ()
 
         local window = {}
 
+        -- Scale factors for mobile
+        local scaleFactor = isMobile and (isTablet and 0.8 or 0.7) or 1
+        local windowWidth = math.floor(612 * scaleFactor)
+        local windowHeight = math.floor(370 * scaleFactor)
+
         local screen = CreateInstance("ScreenGui", parent, {
             Name = "lib_" .. window_id,
-            ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            IgnoreGuiInset = true
         })
 
-local destructionHooks = {}
+        local destructionHooks = {}
 
         function window:OnDestroy(func)
             table.insert(destructionHooks, func)
@@ -141,9 +179,10 @@ local destructionHooks = {}
 
         local top = CreateInstance("Frame", screen, {
             Name = "Top",
-            Position = UDim2.new(0.375, 0, 0.184, 0),
+            Position = isMobile and UDim2.new(0.5, -windowWidth/2, 0.1, 0) or UDim2.new(0.375, 0, 0.184, 0),
+            AnchorPoint = isMobile and Vector2.new(0, 0) or Vector2.new(0, 0),
             BorderColor3 = Colors.Gray.Stroke,
-            Size = UDim2.new(0, 612, 0, 42),
+            Size = UDim2.new(0, windowWidth, 0, 42),
             BackgroundColor3 = Color3.fromRGB(20, 20, 20)
         })
 
@@ -159,7 +198,7 @@ local destructionHooks = {}
             BackgroundTransparency = 1,
             Size = UDim2.new(1, 0, 0, 50),
             Position = UDim2.new(0, 15, -0.194, 0),
-            TextSize = 14,
+            TextSize = 14 * scaleFactor,
             TextWrapped = true,
             TextXAlignment = Enum.TextXAlignment.Left
         })
@@ -172,7 +211,7 @@ local destructionHooks = {}
             Image = "rbxassetid://3926305904",
             ZIndex = 2,
             BackgroundTransparency = 1,
-            Size = UDim2.new(0, 25, 0, 25)
+            Size = UDim2.new(0, 25 * scaleFactor, 0, 25 * scaleFactor)
         })
 
         closeButton.MouseButton1Click:Connect(function () window:Destroy() end)
@@ -185,7 +224,7 @@ local destructionHooks = {}
             Image = "rbxassetid://3926305904",
             ZIndex = 2,
             BackgroundTransparency = 1,
-            Size = UDim2.new(0, 18, 0, 20)
+            Size = UDim2.new(0, 18 * scaleFactor, 0, 20 * scaleFactor)
         })
 
         local hideButton = CreateInstance("TextButton", top, {
@@ -195,8 +234,8 @@ local destructionHooks = {}
             Position = UDim2.new(0.829, 0, 0, 0),
             TextColor3 = Color3.new(0.768628, 0.764706, 0.780392),
             Text = "-",
-            TextSize = 67,
-            Size = UDim2.new(0, 22, 0, 22)
+            TextSize = 67 * scaleFactor,
+            Size = UDim2.new(0, 22 * scaleFactor, 0, 22 * scaleFactor)
         })
 
         hideButton.MouseButton1Click:Connect(function ()
@@ -204,11 +243,12 @@ local destructionHooks = {}
 
             game:GetService("StarterGui"):SetCore("SendNotification", {
                 Title = "Minimized",
-                Text = "KeyBind : LeftAlt",
-                Duration = 1
+                Text = isMobile and "Tap notification to restore" or "KeyBind : LeftAlt",
+                Duration = 3
             })
         end)
 
+        -- Mobile drag support with touch
         pcall(function ()
             local IsDragging = false
             local dragInput
@@ -222,7 +262,7 @@ local destructionHooks = {}
             end
 
             top.InputBegan:Connect(function (input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     IsDragging = true
                     StartingPoint = input.Position
                     oldPos = top.Position
@@ -236,7 +276,7 @@ local destructionHooks = {}
             end)
 
             top.InputChanged:Connect(function (input)
-                if input.UserInputType == Enum.UserInputType.MouseMovement then
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                     dragInput = input
                 end
             end)
@@ -252,7 +292,7 @@ local destructionHooks = {}
             Position = UDim2.new(0, 0, 0.764, 0),
             BorderColor3 = Colors.White,
             ZIndex = 0,
-            Size = UDim2.new(0, 612, 0, 370),
+            Size = UDim2.new(0, windowWidth, 0, windowHeight),
             BackgroundColor3 = Colors.Gray.Top
         })
 
@@ -273,31 +313,37 @@ local destructionHooks = {}
                 top.Visible = true
             end
 
-            local handler = UserInputService.InputBegan:Connect(function (input)
-                if input.KeyCode == Enum.KeyCode.LeftAlt then
-                    if opened then
-                        window:Hide()
-                    else
-                        window:Show()
+            -- Mobile: Show on notification tap, Desktop: LeftAlt key
+            if not isMobile then
+                local handler = UserInputService.InputBegan:Connect(function (input)
+                    if input.KeyCode == Enum.KeyCode.LeftAlt then
+                        if opened then
+                            window:Hide()
+                        else
+                            window:Show()
+                        end
                     end
-                end
-            end)
+                end)
 
-            window:OnDestroy(function ()
-                handler:Disconnect()
-            end)
+                window:OnDestroy(function ()
+                    handler:Disconnect()
+                end)
+            end
         end)
+
+        local tabsWidth = math.floor(160 * scaleFactor)
+        local bodyWidth = windowWidth - tabsWidth - math.floor(10 * scaleFactor)
 
         local windowBody = CreateInstance("ScrollingFrame", windowContainer, {
             ScrollBarImageColor3 = Colors.Black,
             Active = true,
             BorderColor3 = Colors.Gray.Stroke,
-            ScrollBarThickness = 0,
-            ScrollBarImageTransparency = 1,
-            Position = UDim2.new(0.257, 0, 0.025, 0),
+            ScrollBarThickness = isMobile and 4 or 0,
+            ScrollBarImageTransparency = isMobile and 0.5 or 1,
+            Position = UDim2.new(0, tabsWidth + 5, 0.025, 0),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             CanvasSize = UDim2.new(0, 0, 0, 0),
-            Size = UDim2.new(0, 451, 0, 350),
+            Size = UDim2.new(0, bodyWidth, 0, windowHeight - 10),
             BorderSizePixel = 0,
             BackgroundColor3 = Color3.fromRGB(19, 19, 19)
         })
@@ -310,23 +356,23 @@ local destructionHooks = {}
             ScrollBarImageColor3 = Colors.Black,
             Active = true,
             BorderColor3 = Colors.Gray.Stroke,
-            ScrollBarThickness = 0,
-            ScrollBarImageTransparency = 1,
+            ScrollBarThickness = isMobile and 4 or 0,
+            ScrollBarImageTransparency = isMobile and 0.5 or 1,
             VerticalScrollBarInset = Enum.ScrollBarInset.Always,
-            AutomaticCanvasSize = Enum.AutomaticSize.X,
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
             CanvasSize = UDim2.new(0, 0, 0, 0),
             Name = "ScrollingFrameTabs",
             Position = UDim2.new(0, 0, 0.01, 0),
-            Size = UDim2.new(0, 160, 0, 355),
+            Size = UDim2.new(0, tabsWidth, 0, windowHeight - 5),
             BackgroundTransparency = 1,
             BackgroundColor3 = Colors.Gray.Top,
         })
 
         CreateInstance("UIGridLayout", scrollingFrameTabs, {
             FillDirection = Enum.FillDirection.Vertical,
-            CellSize = UDim2.new(0, 150, 0, 25),
+            CellSize = UDim2.new(0, tabsWidth - 10, 0, 25 * scaleFactor),
             SortOrder = Enum.SortOrder.LayoutOrder,
-            CellPadding = UDim2.new(0, 5, 0, 10),
+            CellPadding = UDim2.new(0, 5, 0, 10 * scaleFactor),
         })
         
         CreateInstance("UIPadding", scrollingFrameTabs, {
@@ -335,7 +381,7 @@ local destructionHooks = {}
         })
 
         pcall(function ()
-            local frame = top.Frame
+            local frame = windowContainer
 
             local function PlayTween(first, bool)
                 local speed = 0.3
@@ -343,7 +389,6 @@ local destructionHooks = {}
                 frame:TweenSize(first, "Out", "Quint", speed)
                 windowBody.Visible = bool
                 scrollingFrameTabs.Visible = bool
-                ustrbord.Enabled = bool
             end
 
             minimizeButton.MouseButton1Click:Connect(function ()
@@ -351,7 +396,7 @@ local destructionHooks = {}
                     PlayTween(UDim2.new(0, frame.AbsoluteSize.X, 0, 10), false)
                     state = library.WindowState.Minimized
                 else
-                    PlayTween(UDim2.new(0, frame.AbsoluteSize.X, 0, 370), true)
+                    PlayTween(UDim2.new(0, frame.AbsoluteSize.X, 0, windowHeight), true)
                     state = library.WindowState.Opened
                 end
             end)
@@ -386,7 +431,7 @@ local destructionHooks = {}
                 Position = UDim2.new(-1.12306619, 0, 2.00234604, 0),
                 AutoButtonColor = false,
                 Size = UDim2.new(0, 200, 0, 50),
-                TextSize = 12,
+                TextSize = 12 * scaleFactor,
                 BackgroundColor3 = Colors.Gray.Top
             })
 
@@ -410,9 +455,11 @@ local destructionHooks = {}
             local tab = {}
             local tabId = #tabs + 1
 
+            local elementWidth = bodyWidth - 15
+
             local tabContainer = CreateInstance("Frame", windowBody, {
                 Visible = false,
-                Size = UDim2.new(0, 507, 0, 400),
+                Size = UDim2.new(0, bodyWidth, 0, 400),
                 BackgroundTransparency = 1,
                 Position = UDim2.new(0.0179270469, 0, -0.00809493847, 0),
                 BorderColor3 = Colors.White,
@@ -454,9 +501,9 @@ local destructionHooks = {}
                     Font = Font,
                     Name = "TextBox",
                     Position = UDim2.new(0.348881781, 0, 2.46790123, 0),
-                    Size = UDim2.new(0, 438, 0, 35),
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
                     ZIndex = 0,
-                    TextSize = 14,
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.DarkButton
                 })
                 
@@ -467,10 +514,10 @@ local destructionHooks = {}
                     Text = "",
                     AnchorPoint = Vector2.new(0, 1),
                     Font = Font,
-                    Position = UDim2.new(0.796531916, 0, 0.927345312, 0),
-                    Size = UDim2.new(0, 85, 0, 27),
+                    Position = UDim2.new(0.75, 0, 0.927345312, 0),
+                    Size = UDim2.new(0, 100 * scaleFactor, 0, 27 * scaleFactor),
                     PlaceholderText = placeholder,
-                    TextSize = 12,
+                    TextSize = 12 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.TogBox,
                     ClearTextOnFocus = false,
                 })
@@ -483,34 +530,40 @@ local destructionHooks = {}
                     CornerRadius = UDim.new(0, 2)
                 })
 
-                pcall(function ()
-                    local originalPos = textBoxInstance.Position
-                    local originalSize = textBoxInstance.Size
+                if not isMobile then
+                    pcall(function ()
+                        local originalPos = textBoxInstance.Position
+                        local originalSize = textBoxInstance.Size
 
-                    local function grow()
-                        task.wait(0.05)
-                        textBoxInstance:TweenPosition(UDim2.new(originalPos.X.Scale - 0.3, originalPos.X.Offset - (originalSize.X.Offset * 0.3), originalPos.Y.Scale, originalPos.Y.Offset), "In", "Linear", 0.2)
-                        textBoxInstance:TweenSize(UDim2.new(originalSize.X.Scale + 0.3, originalSize.X.Offset * 1.3, originalSize.Y.Scale, originalSize.Y.Offset), "In", "Linear", 0.2)
-                    end
+                        local function grow()
+                            task.wait(0.05)
+                            textBoxInstance:TweenPosition(UDim2.new(originalPos.X.Scale - 0.3, originalPos.X.Offset - (originalSize.X.Offset * 0.3), originalPos.Y.Scale, originalPos.Y.Offset), "In", "Linear", 0.2)
+                            textBoxInstance:TweenSize(UDim2.new(originalSize.X.Scale + 0.3, originalSize.X.Offset * 1.3, originalSize.Y.Scale, originalSize.Y.Offset), "In", "Linear", 0.2)
+                        end
 
-                    local function shrink()
-                        textBoxInstance:TweenPosition(originalPos, "In", "Linear", 0.2)
-                        textBoxInstance:TweenSize(originalSize, "In", "Linear", 0.2)
-                    end
-                    
+                        local function shrink()
+                            textBoxInstance:TweenPosition(originalPos, "In", "Linear", 0.2)
+                            textBoxInstance:TweenSize(originalSize, "In", "Linear", 0.2)
+                        end
 
+                        textBoxInstance.FocusLost:Connect(function (enter)
+                            if enter then
+                                callback(textBoxInstance.Text, textbox)
+                                shrink()
+                            end
+                        end)
+
+                        textBoxInstance.Focused:Connect(function () grow() end)
+                        textBoxInstance.MouseEnter:Connect(function () grow() end)
+                        textBoxInstance.MouseLeave:Connect(function () shrink() end)
+                    end)
+                else
                     textBoxInstance.FocusLost:Connect(function (enter)
                         if enter then
                             callback(textBoxInstance.Text, textbox)
-                            shrink()
                         end
                     end)
-
-                    textBoxInstance.Focused:Connect(function () grow() end)
-                    textBoxInstance.MouseEnter:Connect(function () grow() end)
-
-                    textBoxInstance.MouseLeave:Connect(function () shrink() end)
-                end)
+                end
 
                 function textbox:GetLabel()
                     return string.sub(textBoxLabel.Text, 2)
@@ -557,13 +610,13 @@ local destructionHooks = {}
                 local sliderLabel = CreateInstance("TextLabel", tabContainer, {
                     TextColor3 = Colors.White,
                     Text = "  " .. label,
-                    Size = UDim2.new(0, 438, 0, 35),
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
                     Font = Font,
                     Name = "Slider",
                     Position = UDim2.new(0.349, 0, 0.468, 0),
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextYAlignment = Enum.TextYAlignment.Top,
-                    TextSize = 14,
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.DarkButton
                 })
 
@@ -576,11 +629,13 @@ local destructionHooks = {}
                     PaddingTop = UDim.new(0, 3),
                 })
                 
+                local sliderWidth = elementWidth - 15
+                
                 local SliderButton = CreateInstance("TextButton", sliderLabel, {
                     Name = "SliderButton",
                     BackgroundColor3 = Color3.fromRGB(255, 255, 255),
                     Position = UDim2.new(0.017, 0, 0.870, 0),
-                    Size = UDim2.new(0, 425, 0, 8),
+                    Size = UDim2.new(0, sliderWidth, 0, 8 * scaleFactor),
                     Font = Enum.Font.SourceSans,
                     TextColor3 = Color3.fromRGB(0, 0, 0),
                     AutoButtonColor = false,
@@ -598,7 +653,7 @@ local destructionHooks = {}
                     BackgroundColor3 = Colors.Cyan,
                     BackgroundTransparency = 0,
                     Position = UDim2.new(0, 0, 0, 0),
-                    Size = UDim2.new(0, (default - minvalue) / (maxvalue - minvalue) * 426, 0, 8),
+                    Size = UDim2.new(0, (default - minvalue) / (maxvalue - minvalue) * sliderWidth, 0, 8 * scaleFactor),
                     BorderColor3 = Color3.fromRGB(50, 50, 50)
                 })
 
@@ -615,25 +670,26 @@ local destructionHooks = {}
                     BackgroundColor3 = Color3.fromRGB(255, 255, 255),
                     BackgroundTransparency = 1.000,
                     Position = UDim2.new(0.585, 0, 0.25, 0),
-                    Size = UDim2.new(0, 175, 0, 8),
+                    Size = UDim2.new(0, 175 * scaleFactor, 0, 8),
                     Font = Enum.Font.GothamBold,
                     Text = tostring(default),
                     TextColor3 = Color3.fromRGB(255, 255, 255),
-                    TextSize = 12.000,
+                    TextSize = 12 * scaleFactor,
                     TextXAlignment = Enum.TextXAlignment.Right,
                 })
 
                 CreateInstance("UICorner", SliderValue, {})
 
-                SliderButton.MouseButton1Down:Connect(function ()
+                -- Mobile and desktop slider interaction
+                local function updateSlider(inputPos)
                     local function Round(value)
                         return math.floor(value * 10 ^ supportFloats) / 10 ^ supportFloats
                     end
 
                     if supportFloats then
-                        Value = Round((((tonumber(maxvalue) - tonumber(minvalue)) / 426) * SliderInner.AbsoluteSize.X) + tonumber(minvalue)) or 0
+                        Value = Round((((tonumber(maxvalue) - tonumber(minvalue)) / sliderWidth) * SliderInner.AbsoluteSize.X) + tonumber(minvalue)) or 0
                     else
-                        Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / 426) * SliderInner.AbsoluteSize.X) + tonumber(minvalue)) or 0
+                        Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / sliderWidth) * SliderInner.AbsoluteSize.X) + tonumber(minvalue)) or 0
                     end
 
                     pcall(function ()
@@ -641,48 +697,35 @@ local destructionHooks = {}
                         SliderValue.Text = Value
                     end)
 
-                    SliderInner.Size = UDim2.new(0, math.clamp(mouse.X - SliderInner.AbsolutePosition.X, 0, 426), 0, 8)
+                    SliderInner.Size = UDim2.new(0, math.clamp(inputPos - SliderInner.AbsolutePosition.X, 0, sliderWidth), 0, 8 * scaleFactor)
+                end
 
-                    moveconnection = mouse.Move:Connect(function ()
-                        if supportFloats then
-                            Value = Round((((tonumber(maxvalue) - tonumber(minvalue)) / 426) * SliderInner.AbsoluteSize.X) + tonumber(minvalue))
-                        else
-                            Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / 426) * SliderInner.AbsoluteSize.X) + tonumber(minvalue))
-                        end
-                        
-                        pcall(function ()
-                            callback(Value, slider)
-                            SliderValue.Text = Value
+                SliderButton.InputBegan:Connect(function (input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                        updateSlider(input.Position.X)
+
+                        local moveconnection
+                        local releaseconnection
+
+                        moveconnection = uis.InputChanged:Connect(function (moveInput)
+                            if moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch then
+                                updateSlider(moveInput.Position.X)
+                            end
                         end)
 
-                        SliderInner.Size = UDim2.new(0, math.clamp(mouse.X - SliderInner.AbsolutePosition.X, 0, 426), 0, 8)
-                    end)
-
-                    releaseconnection = uis.InputEnded:Connect(function (Mouse)
-                        if Mouse.UserInputType == Enum.UserInputType.MouseButton1 then
-                            if supportFloats then
-                                Value = Round((((tonumber(maxvalue) - tonumber(minvalue)) / 426) * SliderInner.AbsoluteSize.X) + tonumber(minvalue))
-                            else
-                                Value = math.floor((((tonumber(maxvalue) - tonumber(minvalue)) / 426) * SliderInner.AbsoluteSize.X) + tonumber(minvalue))
+                        releaseconnection = uis.InputEnded:Connect(function (endInput)
+                            if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
+                                updateSlider(endInput.Position.X)
+                                moveconnection:Disconnect()
+                                releaseconnection:Disconnect()
                             end
-
-                            pcall(function ()
-                                callback(Value, slider)
-                                SliderValue.Text = Value
-                            end)
-
-                            SliderInner.Size = UDim2.new(0, math.clamp(mouse.X - SliderInner.AbsolutePosition.X, 0, 426), 0, 8)
-
-                            moveconnection:Disconnect()
-                            releaseconnection:Disconnect()
-                        end
-                    end)
+                        end)
+                    end
                 end)
 
                 function slider:SetValue(value)
                     local value = math.clamp(value, minvalue, maxvalue)
-
-                    SliderInner.Size = UDim2.new(0, (value - minvalue) / (maxvalue - minvalue) * 426, 0, 8)
+                    SliderInner.Size = UDim2.new(0, (value - minvalue) / (maxvalue - minvalue) * sliderWidth, 0, 8 * scaleFactor)
                 end
 
                 function slider:Destroy()
@@ -706,9 +749,9 @@ local destructionHooks = {}
                     TextXAlignment = Enum.TextXAlignment.Left,
                     TextColor3 = Colors.White,
                     AutoButtonColor = false,
-                    Size = UDim2.new(0, 438, 0, 35),
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
                     Text = "  " .. label,
-                    TextSize = 14,
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.DarkButton
                 })
                 
@@ -720,7 +763,7 @@ local destructionHooks = {}
                     Name = "Toggle",
                     Position = UDim2.new(0.900, 0, 0.37, 0),
                     ZIndex = 2,
-                    Size = UDim2.new(0, 14, 0, 15),
+                    Size = UDim2.new(0, 14 * scaleFactor, 0, 15 * scaleFactor),
                     BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                 })
 
@@ -739,7 +782,7 @@ local destructionHooks = {}
                     Name = "ToggleBtn",
                     Position = UDim2.new(0.897, 0, 0.341, 0),
                     TextTransparency = 1,
-                    Size = UDim2.new(0, 37, 0, 17),
+                    Size = UDim2.new(0, 37 * scaleFactor, 0, 17 * scaleFactor),
                     TextSize = 14,
                     BackgroundColor3 = Colors.White
                 })
@@ -761,7 +804,6 @@ local destructionHooks = {}
                     else
                         toggleButton.UIGradient.Enabled = true
                         toggleContainer:TweenPosition(UDim2.new(0.945, 0, 0.37, 0), "Out", "Linear", speed, false)
-
                         wait(0.05)
                     end
 
@@ -778,7 +820,7 @@ local destructionHooks = {}
                         update(true)
                     end)
 
-                    toggleContainer.Parent.MouseButton1Click:Connect(function ()
+                    mainToggleContainer.MouseButton1Click:Connect(function ()
                         boolValue.Value = not boolValue.Value
                         update(true)
                     end)
@@ -818,9 +860,9 @@ local destructionHooks = {}
                     Font = Font,
                     Name = "Label",
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    Size = UDim2.new(0, 438, 0, 35),
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
                     ZIndex = 0,
-                    TextSize = 14,
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.DarkButton
                 })
  
@@ -835,8 +877,8 @@ local destructionHooks = {}
                     BackgroundTransparency = 1,
                     Position = UDim2.new(0, 0, 0.350000083, 0),
                     TextXAlignment = Enum.TextXAlignment.Left,
-                    Size = UDim2.new(0, 119, 0, 26),
-                    TextSize = 12,
+                    Size = UDim2.new(0, 119 * scaleFactor, 0, 26 * scaleFactor),
+                    TextSize = 12 * scaleFactor,
                     BackgroundColor3 = Colors.White,
                     Visible = #(description or "") > 0
                 })
@@ -855,7 +897,6 @@ local destructionHooks = {}
 
                 function label:SetDescription(description)
                     textDescription.Text = "   " .. description
-
                     textDescription.Visible = #(description or "") > 0
                 end
 
@@ -874,8 +915,8 @@ local destructionHooks = {}
                     Position = UDim2.new(0, 0, 0.166284561, 0),
                     TextXAlignment = Enum.TextXAlignment.Left,
                     AutoButtonColor = false,
-                    Size = UDim2.new(0, 438, 0, 35),
-                    TextSize = 14,
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.DarkButton
                 })
 
@@ -891,7 +932,7 @@ local destructionHooks = {}
                     ImageRectOffset = Vector2.new(204, 964),
                     ZIndex = 2,
                     BackgroundTransparency = 1,
-                    Size = UDim2.new(0, 21, 0, 21),
+                    Size = UDim2.new(0, 21 * scaleFactor, 0, 21 * scaleFactor),
                 })
 
                 autobutcolor(buttonContainer, Colors.Gray.DarkButton)
@@ -923,7 +964,7 @@ local destructionHooks = {}
                     Name = "Dropdown",
                     Position = UDim2.new(0, 0, 0.636, 0),
                     ClipsDescendants = false,
-                    Size = UDim2.new(0, 900, 0, 35),
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
                     BackgroundTransparency = 1,
                 })
 
@@ -940,9 +981,9 @@ local destructionHooks = {}
                     Font = Enum.Font.SourceSansBold,
                     Name = "SearchBar",
                     Position = UDim2.new(0.645004511, 0, -0.030000296, 0),
-                    Size = UDim2.new(0, 130, 0, 20),
+                    Size = UDim2.new(0, 130 * scaleFactor, 0, 20 * scaleFactor),
                     ZIndex = 4,
-                    TextSize = 14,
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.TogBox,
                     TextWrapped = true,
                 })
@@ -963,9 +1004,9 @@ local destructionHooks = {}
                     TextXAlignment = Enum.TextXAlignment.Left,
                     Position = UDim2.new(0, 0, 1, 0),
                     AutoButtonColor = false,
-                    Size = UDim2.new(0, 438, 0, 35),
+                    Size = UDim2.new(0, elementWidth, 0, 35 * scaleFactor),
                     ZIndex = 3,
-                    TextSize = 14,
+                    TextSize = 14 * scaleFactor,
                     BackgroundColor3 = Colors.Gray.DarkButton,
                     BackgroundTransparency = 0
                 })
@@ -976,8 +1017,6 @@ local destructionHooks = {}
                     CornerRadius = UDim.new(0, 2)
                 })
 
-                local Script106 = CreateInstance("Script", dropdownLabel, {})
-
                 local dropdownSelectedLabel = CreateInstance("TextLabel", dropdownLabel, {
                     TextWrapped = true,
                     TextColor3 = Colors.White,
@@ -985,10 +1024,10 @@ local destructionHooks = {}
                     Font = Font,
                     BackgroundTransparency = 1,
                     Position = UDim2.new(0.61172733, 0, -0.05, 0),
-                    Size = UDim2.new(0, 200, 0, 40),
+                    Size = UDim2.new(0, 200 * scaleFactor, 0, 40 * scaleFactor),
                     ZIndex = 3,
-                    TextSize = 12,
-                    BackgroundColor3 = Color3.new(0.176471, 0.176471, 0.176471)
+                    TextSize = 12 * scaleFactor,
+                    BackgroundColor3 = Color3.fromRGB(45, 45, 45)
                 })
 
                 CreateInstance("UICorner", dropdownSelectedLabel, {})
@@ -996,12 +1035,12 @@ local destructionHooks = {}
                 local dropdownValuesContainer = CreateInstance("ScrollingFrame", dropdownContainer, {
                     ScrollBarImageColor3 = Colors.Black,
                     Active = true,
-                    ScrollBarThickness = 0,
+                    ScrollBarThickness = isMobile and 4 or 0,
                     BackgroundTransparency = 1,
                     Position = UDim2.new(0, 0, 0.215384528, 0),
-                    ScrollBarImageTransparency = 1,
+                    ScrollBarImageTransparency = isMobile and 0.5 or 1,
                     Visible = false,
-                    Size = UDim2.new(0, 438, 0, 98),
+                    Size = UDim2.new(0, elementWidth, 0, 98 * scaleFactor),
                     CanvasSize = UDim2.new(0, 0, 0, 0),
                     AutomaticCanvasSize = Enum.AutomaticSize.Y,
                 })
@@ -1016,11 +1055,11 @@ local destructionHooks = {}
 
                 local function addDropButton(value)
                     return CreateInstance("TextButton", dropdownValuesContainer, {
-                        TextSize = 14,
+                        TextSize = 14 * scaleFactor,
                         Font = Enum.Font.SourceSans,
                         TextColor3 = Colors.White,
                         Position = UDim2.new(0.0425531901, 0, 0.0840541124, 0),
-                        Size = UDim2.new(0, 438, 0, 20),
+                        Size = UDim2.new(0, elementWidth, 0, 20 * scaleFactor),
                         AutoButtonColor = false,
                         Text = value,
                         BorderSizePixel = 0,
@@ -1041,13 +1080,13 @@ local destructionHooks = {}
                     
                     autobutcolor(btn, Colors.Gray.DropDownButton)
 
-                    local function PlayTeen(argu)
-                        argu:TweenSize(UDim2.new(0, 438, 0, 35), "Out", "Quint", 0.2)
+                    local function PlayTween(argu)
+                        argu:TweenSize(UDim2.new(0, elementWidth, 0, 35 * scaleFactor), "Out", "Quint", 0.2)
                         argu.TextButton:TweenPosition(UDim2.new(0, 0, 1, 0), "Out", "Quint", 0.2)
                     end
 
                     btn.MouseButton1Click:Connect(function ()
-                        PlayTeen(dropdownContainer)
+                        PlayTween(dropdownContainer)
 
                         dropdownValuesContainer.Visible = false
                         dropdownSearchBox.Visible = false
@@ -1085,10 +1124,6 @@ local destructionHooks = {}
                     Padding = UDim.new(0, 3)
                 })
 
-                local Script114 = CreateInstance("Script", dropdownValuesContainer, {
-                    Name = "Searching"
-                })
-
                 pcall(function ()
                     local dropdown = dropdownLabel.Parent
                     local scrollingframe = dropdown.ScrollingFrame
@@ -1096,14 +1131,14 @@ local destructionHooks = {}
 
                     dropdownLabel.MouseButton1Click:Connect(function ()
                         if searchbar.Visible == false then
-                            dropdown:TweenSize(UDim2.new(0, 438, 0, 140), "Out", "Quint", 0.2)
+                            dropdown:TweenSize(UDim2.new(0, elementWidth, 0, 140 * scaleFactor), "Out", "Quint", 0.2)
                             dropdownLabel:TweenPosition(UDim2.new(0, 0, 0.2, 0), "Out", "Quint", 0.2)
                             searchbar:TweenPosition(UDim2.new(0.680, 0, -0.020, 0), "Out", "Quint", 0.2)
                             scrollingframe.Visible = true
                             searchbar.Visible = true
                             dropdownSelectedLabel.Visible = false
                         else
-                            dropdown:TweenSize(UDim2.new(0, 438, 0, 35), "Out", "Quint", 0.2)
+                            dropdown:TweenSize(UDim2.new(0, elementWidth, 0, 35 * scaleFactor), "Out", "Quint", 0.2)
                             dropdown.TextButton:TweenPosition(UDim2.new(0, 0, 1, 0), "Out", "Quint", 0.2)
                             scrollingframe.Visible = false
                             searchbar.Visible = false
@@ -1123,9 +1158,8 @@ local destructionHooks = {}
                         searchHook = nil
                     end
 
-                    local script = Script114
-                    local scrollframe = script.Parent
-                    local searchbar = scrollframe.Parent.SearchBar
+                    local scrollframe = dropdownValuesContainer
+                    local searchbar = dropdownSearchBox
        
                     local function UpdateSearch(prop)
                         if prop ~= "Text" then
@@ -1143,7 +1177,7 @@ local destructionHooks = {}
                         else
                             for i, button in pairs(scrollframe:GetChildren()) do
                                 if button:IsA("TextButton") then
-                                    local searchText = searchbar.Text
+                                    local searchText = string.lower(searchbar.Text)
 
                                     if searchText ~= "" then
                                         local buttonText = string.lower(button.Text)
@@ -1165,18 +1199,18 @@ local destructionHooks = {}
                 end)
 
                 pcall(function ()
-                    local selected = dropdownContainer.TextButton.TextLabel
-                    local searchbar = dropdownContainer.SearchBar
+                    local selected = dropdownSelectedLabel
+                    local searchbar = dropdownSearchBox
 
-                    local function PlayTeen(argu)
-                        argu:TweenSize(UDim2.new(0, 438, 0, 35), "Out", "Quint", 0.2)
+                    local function PlayTween(argu)
+                        argu:TweenSize(UDim2.new(0, elementWidth, 0, 35 * scaleFactor), "Out", "Quint", 0.2)
                         argu.TextButton:TweenPosition(UDim2.new(0, 0, 1, 0), "Out", "Quint", 0.2)
                     end
 
                     for i, v in pairs(dropdownValuesContainer:GetChildren()) do
                         if v:IsA("TextButton") then
                             v.MouseButton1Click:Connect(function ()
-                                PlayTeen(dropdownContainer)
+                                PlayTween(dropdownContainer)
 
                                 dropdownValuesContainer.Visible = false
                                 searchbar.Visible = false
